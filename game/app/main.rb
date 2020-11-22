@@ -31,7 +31,7 @@ class Particle < Sprite3D
   end
 
   def draw_override(ffi_draw)
-    return if @z_factor < 1
+    return if @z >= 0
 
     actual_w = w
     actual_h = h
@@ -51,7 +51,7 @@ class Particle < Sprite3D
 end
 
 class World
-  RADIUS = 300
+  RADIUS = 320
   TURN_SPEED = 0.01
 
   def initialize

@@ -11,10 +11,15 @@ end
 class Sprite3D < Resources::Sprite
   attr_reader :z
 
+  class << self
+    def camera_distance
+      @camera_distance ||= 500
+    end
+  end
+
   def z=(value)
-    camera_distance = 400
-    distance = camera_distance - value
-    @z_factor = distance / camera_distance
+    distance = Sprite3D.camera_distance - value
+    @z_factor = distance / Sprite3D.camera_distance
     @z = value
   end
 
