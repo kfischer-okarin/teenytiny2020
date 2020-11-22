@@ -53,6 +53,7 @@ end
 class World
   RADIUS = 320
   TURN_SPEED = 0.01
+  WALK_SPEED = 0.02
 
   def initialize
     @particles = 200.times.map { random_particle }
@@ -62,7 +63,9 @@ class World
 
     @quaternions = {
       turn_left: DRT::Quaternion.from_angle_and_axis(-TURN_SPEED, 0, 0, 1),
-      turn_right: DRT::Quaternion.from_angle_and_axis(TURN_SPEED, 0, 0, 1)
+      turn_right: DRT::Quaternion.from_angle_and_axis(TURN_SPEED, 0, 0, 1),
+      forward: DRT::Quaternion.from_angle_and_axis(WALK_SPEED, -1, 0, 0),
+      back: DRT::Quaternion.from_angle_and_axis(-WALK_SPEED, -1, 0, 0)
     }
   end
 
@@ -71,7 +74,7 @@ class World
     args.outputs.sprites << @character
   end
 
-  %i[turn_left turn_right].each do |action|
+  %i[turn_left turn_right forward back].each do |action|
     define_method action do
       quaternion = @quaternions[action]
 
@@ -115,6 +118,11 @@ class MainScene
       @inputs << :turn_left
     elsif args.inputs.keyboard.key_held.right
       @inputs << :turn_right
+    end
+    if args.inputs.keyboard.key_held.up
+      @inputs << :forward
+    elsif args.inputs.keyboard.key_held.down
+      @inputs << :back
     end
   end
 
