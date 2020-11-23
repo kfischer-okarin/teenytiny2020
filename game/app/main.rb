@@ -61,30 +61,11 @@ end
 
 class Background
   def initialize
-    @path = 'planet'
     @segments = (-World::RADIUS..World::RADIUS).flat_map { |y|
       angle = Math.acos(y / World::RADIUS)
       x = Math.sin(angle) * World::RADIUS
-      Segment.create_for(self, 3, x, y)
+      Segment.create_for(3, x, y)
     }
-  end
-
-  def forward
-    @center_y += 2
-    @center_y -= 1024 if @center_y >= 1024 + 512
-  end
-
-  def back
-    @center_y -= 2
-    @center_y += 1024 if @center_y <= 1024 - 512
-  end
-
-  def center_x
-    @center_x ||= 1024
-  end
-
-  def center_y
-    @center_y ||= 1024
   end
 
   def primitive_marker
@@ -100,15 +81,14 @@ class Background
   private
 
   class Segment
-    def self.create_for(background, n, x, y)
+    def self.create_for(n, x, y)
       w = x * 2 / n
       n.times.map { |k|
-        Segment.new(background, -x + k * w, y, w)
+        Segment.new(-x + k * w, y, w)
       }
     end
 
-    def initialize(background, x, y, w)
-      @background = background
+    def initialize(x, y, w)
       @y = y
       @x = x
       @w = w
@@ -117,17 +97,11 @@ class Background
       @sphere_point_end = calc_sphere_point(@x + @w, @y)
       @uv_start = uv(@sphere_point_start)
       @uv_end = uv(@sphere_point_end)
+      @source_x = 512 - (0.5 - @uv_end.x) * 512
+      @source_y = 512 - (@uv_end.y - 0.5) * 512
       @source_w = calc_source_w
       @source_h = 1
       @path = 'planet'
-    end
-
-    def source_x
-      @background.center_x - (0.5 - @uv_end.x) * 512
-    end
-
-    def source_y
-      @background.center_y - (@uv_end.y - 0.5) * 512
     end
 
     def draw(ffi_draw)
@@ -141,7 +115,7 @@ class Background
                              # angle_anchor_x, angle_anchor_y,
                              nil, nil,
                              # source_x, source_y, source_w, source_h
-                             source_x, source_y, @source_w, @source_h
+                             @source_x, @source_y, @source_w, @source_h
     end
 
     private
@@ -206,20 +180,10 @@ class World
     args.outputs.sprites << @character
   end
 
-  %i[turn_left turn_right].each do |action|
+  %i[turn_left turn_right forward back].each do |action|
     define_method action do
       apply_quaternion @quaternions[action]
     end
-  end
-
-  def forward
-    apply_quaternion @quaternions[:forward]
-    @background.forward
-  end
-
-  def back
-    apply_quaternion @quaternions[:back]
-    @background.back
   end
 
   private
@@ -259,7 +223,8 @@ end
 class MainScene
   attr_reader :next_scene
 
-  def initialize
+  def initialize(planet_texture)
+    @planet_texture = planet_texture
     @world = World.new(ParticleFactory.random_spaced(20, Math::PI / 9))
   end
 
@@ -268,7 +233,9 @@ class MainScene
 
     @inputs.each do |input|
       @world.send(input)
+      @planet_texture.send(input)
     end
+    @planet_texture.tick(args)
 
     render(args)
   end
@@ -292,23 +259,70 @@ class MainScene
   def render(args)
     args.outputs.background_color = [0, 0, 0]
     @world.render(args)
+
+    render_texture(args) if args.debug.active?
+  end
+
+  private
+
+  def render_texture(args)
+    args.outputs.primitives << [0, 0, 128, 128, 255, 255, 255].solid
+    args.outputs.primitives << [0, 0, 128, 128, 'planet'].sprite
+  end
+end
+
+class LoopingTexture
+  def initialize(args)
+    @path = Resources.sprites.mars.path
+    @size = 512
+    @offset_x = 0
+    @offset_y = 0
+    redraw(args)
+  end
+
+  def forward
+    @offset_y -= 2
+    @offset_y += @size if @offset_y <= -@size / 2
+    @dirty = true
+  end
+
+  def back
+    @offset_y += 2
+    @offset_y -= @size if @offset_y >= @size / 2
+    @dirty = true
+  end
+
+  def turn_left; end
+  def turn_right; end
+
+  def tick(args)
+    redraw(args) if @dirty
+  end
+
+  private
+
+  def redraw(args)
+    target = args.outputs[:planet]
+    target.width = @size * 2
+    target.height = @size * 2
+    2.times do |x|
+      2.times do |y|
+        target.primitives << [@size * x + @offset_x, @size * y + @offset_y, @size, @size, @path].sprite
+      end
+    end
+    target.primitives << [@size - 50 + @offset_x, @size - 50 + @offset_y, 100, 100, 255, 0, 0].solid
+    @dirty = false
   end
 end
 
 class PrepareRenderTargets
   def tick(args)
-    planet = args.outputs[:planet]
-    planet.width = 2048
-    planet.height = 2048
-    4.times do |x|
-      4.times do |y|
-        planet.sprites << [512 * x, 512 * y, 512, 512, Resources.sprites.mars.path]
-      end
-    end
+    texture = LoopingTexture.new(args)
+    @next_scene = MainScene.new(texture)
   end
 
   def next_scene
-    MainScene.new
+    @next_scene
   end
 end
 def tick(args)
