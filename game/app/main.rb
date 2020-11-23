@@ -318,11 +318,11 @@ class LoopingTexture
   end
 
   def turn_left
-    self.angle += 1
+    self.angle -= 1
   end
 
   def turn_right
-    self.angle -= 1
+    self.angle += 1
   end
 
   def tick(args)
@@ -332,7 +332,7 @@ class LoopingTexture
   private
 
   def redraw(args)
-    target = args.outputs[:planet]
+    target = args.outputs[:planet_first_pass]
     target.width = @size * 2
     target.height = @size * 2
     2.times do |x|
@@ -343,11 +343,15 @@ class LoopingTexture
           w: @size,
           h: @size,
           path: @path,
-          # angle: @angle
         }.sprite
       end
     end
     target.primitives << [@size - 50 + @offset_x, @size - 50 + @offset_y, 100, 100, 255, 0, 0].solid if args.debug.active?
+
+    target = args.outputs[:planet]
+    target.width = @size * 2
+    target.height = @size * 2
+    target.primitives << [0, 0, @size * 2, @size * 2, :planet_first_pass, @angle].sprite
     @dirty = false
   end
 end
