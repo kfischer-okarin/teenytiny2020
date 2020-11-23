@@ -55,8 +55,8 @@ class World
   TURN_SPEED = 0.01
   WALK_SPEED = 0.02
 
-  def initialize
-    @particles = 200.times.map { random_particle }
+  def initialize(particles)
+    @particles = particles
     @sorted_particles = BubbleSortedList.new(@particles) { |particle| -particle.z }
 
     @character = Particle.new(x: 0, y: 0, z: -RADIUS, r: 0, g: 255, b: 0)
@@ -84,20 +84,22 @@ class World
       end
     end
   end
+end
 
-  private
+class ParticleFactory
+  class << self
+    def random
+      polar = rand * Math::PI
+      azimuth = rand * 2 * Math::PI
 
-  def random_particle
-    polar = rand * Math::PI
-    azimuth = rand * 2 * Math::PI
-
-    Particle.at_polar_coordinates(RADIUS, polar, azimuth)
+      Particle.at_polar_coordinates(World::RADIUS, polar, azimuth)
+    end
   end
 end
 
 class MainScene
   def initialize
-    @world = World.new
+    @world = World.new(20.times.map { ParticleFactory.random })
   end
 
   def tick(args)
