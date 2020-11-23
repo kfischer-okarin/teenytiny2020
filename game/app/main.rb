@@ -40,7 +40,7 @@ class Particle < Sprite3D
   end
 
   def draw_override(ffi_draw)
-    return if @z >= 0
+    return if @z <= 0
 
     actual_w = w
     actual_h = h
@@ -97,8 +97,8 @@ class Background
       @sphere_point_end = calc_sphere_point(@x + @w, @y)
       @uv_start = uv(@sphere_point_start)
       @uv_end = uv(@sphere_point_end)
-      @source_x = 512 - (0.5 - @uv_end.x) * 512
-      @source_y = 512 - (@uv_end.y - 0.5) * 512
+      @source_x = 512 - (0.5 - @uv_start.x) * 512
+      @source_y = 512 - (@uv_start.y - 0.5) * 512
       @source_w = calc_source_w
       @source_h = 1
       @path = 'planet'
@@ -111,7 +111,7 @@ class Background
                              # tile_x, tile_y, tile_w, tile_h
                              nil, nil, nil, nil,
                              # flip_horizontally, flip_vertically,
-                             true, nil,
+                             nil, nil,
                              # angle_anchor_x, angle_anchor_y,
                              nil, nil,
                              # source_x, source_y, source_w, source_h
@@ -121,20 +121,20 @@ class Background
     private
 
     # Calc ray sphere intersection
-    # origin = [@x, @y, -World::Radius]
-    # direction = [0, 0, 1]
-    # target = [origin.x, origin.y, origin.z + n]
-    # origin.x ** 2 + origin.y ** 2 + (origin.z + n) ** 2 = World::RADIUS ** 2
-    # n ** 2 + 2 * origin.z * n + (origin.x ** 2 + origin.y ** 2 + origin.z ** 2 - World::RADIUS ** 2)
-    # n1 = - origin.z + Math.sqrt(World::RADIUS ** 2 - origin.x ** 2 - origin.y ** 2)
-    # n2 = - origin.z - Math.sqrt(World::RADIUS ** 2 - origin.x ** 2 - origin.y ** 2)
-    # target = [origin.x, origin.y, -Math.sqrt(World::RADIUS ** 2 - origin.x ** 2 - origin.y ** 2)]
+    # origin = [@x, @y, World::Radius]
+    # direction = [0, 0, -1]
+    # target = [origin.x, origin.y, origin.z - n]
+    # origin.x ** 2 + origin.y ** 2 + (origin.z - n) ** 2 = World::RADIUS ** 2
+    # n ** 2 - 2 * origin.z * n + (origin.x ** 2 + origin.y ** 2 + origin.z ** 2 - World::RADIUS ** 2)
+    # n1 = origin.z + Math.sqrt(World::RADIUS ** 2 - origin.x ** 2 - origin.y ** 2)
+    # n2 = origin.z - Math.sqrt(World::RADIUS ** 2 - origin.x ** 2 - origin.y ** 2)
+    # target = [origin.x, origin.y, Math.sqrt(World::RADIUS ** 2 - origin.x ** 2 - origin.y ** 2)]
     def calc_sphere_point(x, y)
       radius = World::RADIUS
       [
         x / radius,
         y / radius,
-        -Math.sqrt([radius**2 - x**2 - y**2, 0].max) / radius
+        Math.sqrt([radius**2 - x**2 - y**2, 0].max) / radius
       ]
     end
 
@@ -146,8 +146,8 @@ class Background
     end
 
     def calc_source_w
-      right_x = @uv_start.x
-      left_x = @uv_end.x
+      right_x = @uv_end.x
+      left_x = @uv_start.x
       right_x += 1 if right_x < left_x
       (right_x - left_x) * 512
     end
@@ -164,13 +164,13 @@ class World
     @particles = particles
     @sorted_particles = BubbleSortedList.new(@particles) { |particle| -particle.z }
 
-    @character = Particle.new(x: 0, y: 0, z: -RADIUS, r: 0, g: 255, b: 0)
+    @character = Particle.new(x: 0, y: 0, z: RADIUS, r: 0, g: 255, b: 0)
 
     @quaternions = {
       turn_left: DRT::Quaternion.from_angle_and_axis(-TURN_SPEED, 0, 0, 1),
       turn_right: DRT::Quaternion.from_angle_and_axis(TURN_SPEED, 0, 0, 1),
-      forward: DRT::Quaternion.from_angle_and_axis(WALK_SPEED, -1, 0, 0),
-      back: DRT::Quaternion.from_angle_and_axis(-WALK_SPEED, -1, 0, 0)
+      forward: DRT::Quaternion.from_angle_and_axis(-WALK_SPEED, -1, 0, 0),
+      back: DRT::Quaternion.from_angle_and_axis(WALK_SPEED, -1, 0, 0)
     }
   end
 

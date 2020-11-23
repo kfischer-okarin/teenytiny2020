@@ -13,13 +13,13 @@ class Sprite3D < Resources::Sprite
 
   class << self
     def camera_distance
-      @camera_distance ||= 500
+      1000
     end
   end
 
   def z=(value)
-    distance = Sprite3D.camera_distance - value
-    @z_factor = distance / Sprite3D.camera_distance
+    distance_from_camera = Sprite3D.camera_distance - value
+    @z_factor = Sprite3D.camera_distance / distance_from_camera
     @z = value
   end
 
