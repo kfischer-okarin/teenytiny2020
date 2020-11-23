@@ -59,12 +59,121 @@ class Particle < Sprite3D
   end
 end
 
+class Background
+  def initialize
+    @path = 'planet'
+    @segments = (-World::RADIUS..World::RADIUS).map { |y|
+      angle = Math.acos(y / World::RADIUS)
+      x = Math.sin(angle) * World::RADIUS
+      w = x * 2
+      Segment.new(self, -x, y, w)
+    }
+  end
+
+  def forward
+    @center_y += 2
+    @center_y -= 1024 if @center_y >= 1024 + 512
+  end
+
+  def back
+    @center_y -= 2
+    @center_y += 1024 if @center_y <= 1024 - 512
+  end
+
+  def center_x
+    @center_x ||= 1024
+  end
+
+  def center_y
+    @center_y ||= 1024
+  end
+
+  def primitive_marker
+    :sprite
+  end
+
+  def draw_override(ffi_draw)
+    @segments.each do |segment|
+      segment.draw(ffi_draw)
+    end
+  end
+
+  private
+
+  class Segment
+    def initialize(background, x, y, w)
+      @background = background
+      @y = y
+      @x = x
+      @w = w
+      @h = 1
+      @sphere_point_start = calc_sphere_point(@x, @y)
+      @sphere_point_end = calc_sphere_point(@x + @w, @y)
+      @uv_start = uv(@sphere_point_start)
+      @uv_end = uv(@sphere_point_end)
+      @source_w = (@uv_end.x - @uv_start.x) * 512
+      @source_h = 1
+      @path = 'planet'
+    end
+
+    def source_x
+      @background.center_x - (0.5 - @uv_start.x) * 512
+    end
+
+    def source_y
+      @background.center_y - (@uv_start.y - 0.5) * 512
+    end
+
+    def draw(ffi_draw)
+      ffi_draw.draw_sprite_3 640 + @x, 360 + @y, @w, @h, @path,
+                             # angle, alpha, red_saturation, green_saturation, blue_saturation
+                             nil, nil, nil, nil, nil,
+                             # tile_x, tile_y, tile_w, tile_h
+                             nil, nil, nil, nil,
+                             # flip_horizontally, flip_vertically,
+                             nil, nil,
+                             # angle_anchor_x, angle_anchor_y,
+                             nil, nil,
+                             # source_x, source_y, source_w, source_h
+                             source_x, source_y, @source_w, @source_h
+    end
+
+    private
+
+    # Calc ray sphere intersection
+    # origin = [@x, @y, -World::Radius]
+    # direction = [0, 0, 1]
+    # target = [origin.x, origin.y, origin.z + n]
+    # origin.x ** 2 + origin.y ** 2 + (origin.z + n) ** 2 = World::RADIUS ** 2
+    # n ** 2 + 2 * origin.z * n + (origin.x ** 2 + origin.y ** 2 + origin.z ** 2 - World::RADIUS ** 2)
+    # n1 = - origin.z + Math.sqrt(World::RADIUS ** 2 - origin.x ** 2 - origin.y ** 2)
+    # n2 = - origin.z - Math.sqrt(World::RADIUS ** 2 - origin.x ** 2 - origin.y ** 2)
+    # target = [origin.x, origin.y, -Math.sqrt(World::RADIUS ** 2 - origin.x ** 2 - origin.y ** 2)]
+    def calc_sphere_point(x, y)
+      radius = World::RADIUS
+      [
+        x / radius,
+        y / radius,
+        -Math.sqrt([radius**2 - x**2 - y**2, 0].max) / radius
+      ]
+    end
+
+    def uv(sphere_point)
+      [
+        0.5 + Math.atan2(sphere_point.x, sphere_point.z) / (2 * Math::PI),
+        0.5 - Math.asin(sphere_point.y) / Math::PI
+      ]
+    end
+  end
+end
+
 class World
   RADIUS = 320
   TURN_SPEED = 0.01
   WALK_SPEED = 0.02
 
   def initialize(particles)
+    @background = Background.new
     @particles = particles
     @sorted_particles = BubbleSortedList.new(@particles) { |particle| -particle.z }
 
@@ -79,18 +188,33 @@ class World
   end
 
   def render(args)
+    args.outputs.sprites << @background
     args.outputs.sprites << @sorted_particles
     args.outputs.sprites << @character
   end
 
-  %i[turn_left turn_right forward back].each do |action|
+  %i[turn_left turn_right].each do |action|
     define_method action do
-      quaternion = @quaternions[action]
+      apply_quaternion @quaternions[action]
+    end
+  end
 
-      @particles.each do |particle|
-        quaternion.apply_to(particle)
-        @sorted_particles.fix_sort_order(particle)
-      end
+  def forward
+    apply_quaternion @quaternions[:forward]
+    @background.forward
+  end
+
+  def back
+    apply_quaternion @quaternions[:back]
+    @background.back
+  end
+
+  private
+
+  def apply_quaternion(quaternion)
+    @particles.each do |particle|
+      quaternion.apply_to(particle)
+      @sorted_particles.fix_sort_order(particle)
     end
   end
 end
