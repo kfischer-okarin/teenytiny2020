@@ -30,6 +30,15 @@ class Particle < Sprite3D
     Math.sqrt(@x**2 + @y**2 + @z**2)
   end
 
+  def dot_product(other)
+    x * other.x + y * other.y + z * other.z
+  end
+
+  def angle_distance_to(other_particle)
+    length = other_length = World::RADIUS
+    Math.acos(dot_product(other_particle) / (length * other_length))
+  end
+
   def draw_override(ffi_draw)
     return if @z >= 0
 
@@ -94,12 +103,25 @@ class ParticleFactory
 
       Particle.at_polar_coordinates(World::RADIUS, polar, azimuth)
     end
+
+    def random_spaced(n, minimum_angle)
+      [].tap { |result|
+        n.times do
+          new_particle = nil
+          loop do
+            new_particle = random
+            break if result.all? { |particle| particle.angle_distance_to(new_particle) >= minimum_angle }
+          end
+          result << new_particle
+        end
+      }
+    end
   end
 end
 
 class MainScene
   def initialize
-    @world = World.new(20.times.map { ParticleFactory.random })
+    @world = World.new(ParticleFactory.random_spaced(20, Math::PI / 9))
   end
 
   def tick(args)
