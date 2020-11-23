@@ -120,6 +120,8 @@ class ParticleFactory
 end
 
 class MainScene
+  attr_reader :next_scene
+
   def initialize
     @world = World.new(ParticleFactory.random_spaced(20, Math::PI / 9))
   end
@@ -156,8 +158,26 @@ class MainScene
   end
 end
 
-def tick(args)
-  args.state.scene ||= MainScene.new if args.tick_count.zero?
+class PrepareRenderTargets
+  def tick(args)
+    planet = args.outputs[:planet]
+    planet.width = 2048
+    planet.height = 2048
+    4.times do |x|
+      4.times do |y|
+        planet.sprites << [512 * x, 512 * y, 512, 512, Resources.sprites.mars.path]
+      end
+    end
+  end
 
-  args.state.scene.tick(args)
+  def next_scene
+    MainScene.new
+  end
+end
+def tick(args)
+  args.state.scene ||= PrepareRenderTargets.new if args.tick_count.zero?
+
+  scene = args.state.scene
+  scene.tick(args)
+  args.state.scene = scene.next_scene if scene.next_scene
 end
