@@ -272,28 +272,58 @@ class MainScene
 end
 
 class LoopingTexture
+  attr_reader :offset_x, :offset_y, :angle
+
   def initialize(args)
     @path = Resources.sprites.mars.path
     @size = 512
     @offset_x = 0
     @offset_y = 0
+    self.angle = 0
     redraw(args)
   end
 
   def forward
-    @offset_y -= 2
-    @offset_y += @size if @offset_y <= -@size / 2
-    @dirty = true
+    self.offset_x -= @direction.x * 2
+    self.offset_y -= @direction.y * 2
   end
 
   def back
-    @offset_y += 2
-    @offset_y -= @size if @offset_y >= @size / 2
-    @dirty = true
+    self.offset_x += @direction.x * 2
+    self.offset_y += @direction.y * 2
   end
 
-  def turn_left; end
-  def turn_right; end
+  def offset_x=(value)
+    @offset_x = value
+    @offset_x += @size while @offset_x <= -@size / 2
+    @offset_x -= @size while @offset_x >= @size / 2
+    @dirty = true
+    @offset_x
+  end
+
+  def offset_y=(value)
+    @offset_y = value
+    @offset_y += @size while @offset_y <= -@size / 2
+    @offset_y -= @size while @offset_y >= @size / 2
+    @dirty = true
+    @offset_y
+  end
+
+  def angle=(value)
+    @angle = value % 360
+    radians = @angle.to_radians
+    @direction = [Math.sin(radians), Math.cos(radians)]
+    @dirty = true
+    @angle
+  end
+
+  def turn_left
+    self.angle += 1
+  end
+
+  def turn_right
+    self.angle -= 1
+  end
 
   def tick(args)
     redraw(args) if @dirty
@@ -307,10 +337,17 @@ class LoopingTexture
     target.height = @size * 2
     2.times do |x|
       2.times do |y|
-        target.primitives << [@size * x + @offset_x, @size * y + @offset_y, @size, @size, @path].sprite
+        target.primitives << {
+          x: @size * x + @offset_x,
+          y: @size * y + @offset_y,
+          w: @size,
+          h: @size,
+          path: @path,
+          # angle: @angle
+        }.sprite
       end
     end
-    target.primitives << [@size - 50 + @offset_x, @size - 50 + @offset_y, 100, 100, 255, 0, 0].solid
+    target.primitives << [@size - 50 + @offset_x, @size - 50 + @offset_y, 100, 100, 255, 0, 0].solid if args.debug.active?
     @dirty = false
   end
 end
