@@ -62,11 +62,10 @@ end
 class Background
   def initialize
     @path = 'planet'
-    @segments = (-World::RADIUS..World::RADIUS).map { |y|
+    @segments = (-World::RADIUS..World::RADIUS).flat_map { |y|
       angle = Math.acos(y / World::RADIUS)
       x = Math.sin(angle) * World::RADIUS
-      w = x * 2
-      Segment.new(self, -x, y, w)
+      Segment.create_for(self, 3, x, y)
     }
   end
 
@@ -101,6 +100,13 @@ class Background
   private
 
   class Segment
+    def self.create_for(background, n, x, y)
+      w = x * 2 / n
+      n.times.map { |k|
+        Segment.new(background, -x + k * w, y, w)
+      }
+    end
+
     def initialize(background, x, y, w)
       @background = background
       @y = y
@@ -111,27 +117,27 @@ class Background
       @sphere_point_end = calc_sphere_point(@x + @w, @y)
       @uv_start = uv(@sphere_point_start)
       @uv_end = uv(@sphere_point_end)
-      @source_w = (@uv_end.x - @uv_start.x) * 512
+      @source_w = calc_source_w
       @source_h = 1
       @path = 'planet'
     end
 
     def source_x
-      @background.center_x - (0.5 - @uv_start.x) * 512
+      @background.center_x - (0.5 - @uv_end.x) * 512
     end
 
     def source_y
-      @background.center_y - (@uv_start.y - 0.5) * 512
+      @background.center_y - (@uv_end.y - 0.5) * 512
     end
 
     def draw(ffi_draw)
-      ffi_draw.draw_sprite_3 640 + @x, 360 + @y, @w, @h, @path,
+      ffi_draw.draw_sprite_3 640 + @x, 360 + @y, @w.ceil, @h, @path,
                              # angle, alpha, red_saturation, green_saturation, blue_saturation
                              nil, nil, nil, nil, nil,
                              # tile_x, tile_y, tile_w, tile_h
                              nil, nil, nil, nil,
                              # flip_horizontally, flip_vertically,
-                             nil, nil,
+                             true, nil,
                              # angle_anchor_x, angle_anchor_y,
                              nil, nil,
                              # source_x, source_y, source_w, source_h
@@ -163,6 +169,13 @@ class Background
         0.5 + Math.atan2(sphere_point.x, sphere_point.z) / (2 * Math::PI),
         0.5 - Math.asin(sphere_point.y) / Math::PI
       ]
+    end
+
+    def calc_source_w
+      right_x = @uv_start.x
+      left_x = @uv_end.x
+      right_x += 1 if right_x < left_x
+      (right_x - left_x) * 512
     end
   end
 end
