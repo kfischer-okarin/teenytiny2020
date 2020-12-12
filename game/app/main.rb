@@ -26,8 +26,13 @@ class Particle < Sprite3D
     super(Resources.sprites.particle, attributes)
   end
 
-  def color=(value)
-    self.r, self.g, self.b = value
+  def touched?
+    @touched
+  end
+
+  def touch
+    self.r, self.g, self.b = [255, 0, 0]
+    @touched = true
   end
 
   def distance_from_center
@@ -182,6 +187,11 @@ class World
     }
   end
 
+  def finished?
+    @particles.all?(&:touched?)
+  end
+
+
   def render(args)
     args.outputs.sprites << @background
     args.outputs.sprites << @sorted_particles
@@ -191,7 +201,7 @@ class World
   def tick(args)
     most_front_particle = @sorted_particles.value(-1)
     if most_front_particle.square_distance_to(@character) < 1000
-      most_front_particle.color = [255, 0, 0]
+      most_front_particle.touch
     end
   end
 
@@ -241,17 +251,31 @@ class MainScene
   def initialize(planet_texture)
     @planet_texture = planet_texture
     @world = World.new(ParticleFactory.random_spaced(20, Math::PI / 9))
+    @remaining_time = 20.0
+    @state = :game
   end
 
   def tick(args)
+    case @state
+    when :game
+      @remaining_time = [@remaining_time - 0.016, 0].max
     process_input(args)
 
     @inputs.each do |input|
       @world.send(input)
       @planet_texture.send(input)
     end
-    @world.tick(args)
-    @planet_texture.tick(args)
+      @world.tick(args)
+      @planet_texture.tick(args)
+
+      @state = :win if @world.finished?
+      @state = :game_over if @remaining_time.zero?
+
+    when :win, :game_over
+      if args.inputs.keyboard.key_down.space
+        @next_scene = MainScene.new(@planet_texture)
+      end
+    end
 
     render(args)
   end
@@ -275,6 +299,16 @@ class MainScene
   def render(args)
     args.outputs.background_color = [0, 0, 0]
     @world.render(args)
+    args.outputs.labels << { x: 150, y: 330, text: format("%.2f", @remaining_time), size_enum: 8, r: 255, g: 255, b: 255 }
+
+    case @state
+    when :win
+      args.outputs.labels << { x: 120, y: 700, text: "You win.", size_enum: 8, r: 255, g: 255, b: 255 }
+      args.outputs.labels << { x: 10, y: 650, text: "Press Space to restart", size_enum: 8, r: 255, g: 255, b: 255 }
+    when :game_over
+      args.outputs.labels << { x: 120, y: 700, text: "You lose.", size_enum: 8, r: 255, g: 255, b: 255 }
+      args.outputs.labels << { x: 10, y: 650, text: "Press Space to restart", size_enum: 8, r: 255, g: 255, b: 255 }
+    end
 
     render_texture(args) if args.debug.active?
   end
