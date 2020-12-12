@@ -169,8 +169,8 @@ end
 
 class World
   RADIUS = 320
-  TURN_SPEED = 0.01
-  WALK_SPEED = 0.02
+  TURN_SPEED = 0.03
+  WALK_SPEED = 0.03
 
   def initialize(particles)
     @background = Background.new
@@ -250,7 +250,7 @@ class MainScene
 
   def initialize(planet_texture)
     @planet_texture = planet_texture
-    @world = World.new(ParticleFactory.random_spaced(20, Math::PI / 9))
+    @world = World.new(ParticleFactory.random_spaced(15, Math::PI / 9))
     @remaining_time = 20.0
     @state = :game
   end
@@ -259,12 +259,12 @@ class MainScene
     case @state
     when :game
       @remaining_time = [@remaining_time - 0.016, 0].max
-    process_input(args)
+      process_input(args)
 
-    @inputs.each do |input|
-      @world.send(input)
-      @planet_texture.send(input)
-    end
+      @inputs.each do |input|
+        @world.send(input)
+        @planet_texture.send(input)
+      end
       @world.tick(args)
       @planet_texture.tick(args)
 
