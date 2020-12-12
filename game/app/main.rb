@@ -26,8 +26,16 @@ class Particle < Sprite3D
     super(Resources.sprites.particle, attributes)
   end
 
+  def color=(value)
+    self.r, self.g, self.b = value
+  end
+
   def distance_from_center
     Math.sqrt(@x**2 + @y**2 + @z**2)
+  end
+
+  def square_distance_to(other)
+    (@x - other.x)**2 + (@y - other.y)**2 + (@z - other.z)**2
   end
 
   def dot_product(other)
@@ -162,7 +170,7 @@ class World
   def initialize(particles)
     @background = Background.new
     @particles = particles
-    @sorted_particles = BubbleSortedList.new(@particles) { |particle| -particle.z }
+    @sorted_particles = BubbleSortedList.new(@particles) { |particle| particle.z }
 
     @character = Particle.new(x: 0, y: 0, z: RADIUS, r: 0, g: 255, b: 0)
 
@@ -178,6 +186,13 @@ class World
     args.outputs.sprites << @background
     args.outputs.sprites << @sorted_particles
     args.outputs.sprites << @character
+  end
+
+  def tick(args)
+    most_front_particle = @sorted_particles.value(-1)
+    if most_front_particle.square_distance_to(@character) < 1000
+      most_front_particle.color = [255, 0, 0]
+    end
   end
 
   %i[turn_left turn_right forward back].each do |action|
@@ -235,6 +250,7 @@ class MainScene
       @world.send(input)
       @planet_texture.send(input)
     end
+    @world.tick(args)
     @planet_texture.tick(args)
 
     render(args)
@@ -366,6 +382,7 @@ class PrepareRenderTargets
     @next_scene
   end
 end
+
 def tick(args)
   args.state.scene ||= PrepareRenderTargets.new if args.tick_count.zero?
 
