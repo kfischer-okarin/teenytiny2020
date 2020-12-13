@@ -1,7 +1,6 @@
-#+begin_src text
 devid=kfischer_okarin
 devtitle=Kevin Fischer
-gameid=gamename
-gametitle=Game Name
-version=0.1
-#+end_src
+gameid=collectthedots
+gametitle=Collect The Dots
+version=1.0
+icon=metadata/icon.png
